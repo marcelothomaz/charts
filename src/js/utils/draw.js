@@ -248,6 +248,8 @@ export function makeText(className, x, y, content, options = {}) {
 	let dy = options.dy !== undefined ? options.dy : (fontSize / 2);
 	let fill = options.fill || FONT_FILL;
 	let textAnchor = options.textAnchor || 'start';
+	let innerHTML = content.split('\n').map(line => `<tspan>${line}</tspan>`).join('\n');
+
 	return createSVG('text', {
 		className: className,
 		x: x,
@@ -256,7 +258,7 @@ export function makeText(className, x, y, content, options = {}) {
 		'font-size': fontSize + 'px',
 		fill: fill,
 		'text-anchor': textAnchor,
-		innerHTML: content
+		innerHTML
 	});
 }
 

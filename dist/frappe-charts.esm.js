@@ -136,7 +136,7 @@ const AXIS_DATASET_CHART_TYPES = ['line', 'bar'];
 const AXIS_LEGEND_BAR_SIZE = 100;
 
 const BAR_CHART_SPACE_RATIO = 0.5;
-const MIN_BAR_PERCENT_HEIGHT = 0.01;
+const MIN_BAR_PERCENT_HEIGHT = 0.00;
 
 const LINE_CHART_DOT_SIZE = 4;
 const DOT_OVERLAY_SIZE_INCR = 4;
@@ -382,6 +382,17 @@ function equilizeNoOfElements(array1, array2,
 	return [array1, array2];
 }
 
+function truncateString(txt, len) {
+	if (!txt) {
+		return;
+	}
+	if (txt.length > len) {
+		return txt.slice(0, len-3) + '...';
+	} else {
+		return txt;
+	}
+}
+
 const PRESET_COLOR_MAP = {
 	'light-blue': '#7cd6fd',
 	'blue': '#5e64ff',
@@ -430,6 +441,7 @@ const getColor = (color) => {
 
 const AXIS_TICK_LENGTH = 6;
 const LABEL_MARGIN = 4;
+const LABEL_MAX_CHARS = 15;
 const FONT_SIZE = 10;
 const BASE_LINE_COLOR = '#dadada';
 const FONT_FILL = '#555b51';
@@ -538,12 +550,12 @@ function makeArcPathStr(startPosition, endPosition, center, radius, clockWise=1,
 		${arcEndX} ${arcEndY} z`;
 }
 
-function makeArcStrokePathStr(startPosition, endPosition, center, radius, clockWise=1){
+function makeArcStrokePathStr(startPosition, endPosition, center, radius, clockWise=1, largeArc=0){
 	let [arcStartX, arcStartY] = [center.x + startPosition.x, center.y + startPosition.y];
 	let [arcEndX, arcEndY] = [center.x + endPosition.x, center.y + endPosition.y];
 
 	return `M${arcStartX} ${arcStartY}
-		A ${radius} ${radius} 0 0 ${clockWise ? 1 : 0}
+		A ${radius} ${radius} 0 ${largeArc} ${clockWise ? 1 : 0}
 		${arcEndX} ${arcEndY}`;
 }
 
@@ -601,7 +613,9 @@ function heatSquare(className, x, y, size, fill='none', data={}) {
 	return createSVG("rect", args);
 }
 
-function legendBar(x, y, size, fill='none', label) {
+function legendBar(x, y, size, fill='none', label, truncate=false) {
+	label = truncate ? truncateString(label, LABEL_MAX_CHARS) : label;
+
 	let args = {
 		className: 'legend-bar',
 		x: 0,
@@ -664,6 +678,8 @@ function makeText(className, x, y, content, options = {}) {
 	let dy = options.dy !== undefined ? options.dy : (fontSize / 2);
 	let fill = options.fill || FONT_FILL;
 	let textAnchor = options.textAnchor || 'start';
+	let innerHTML = content.split('\n').map(line => `<tspan>${line}</tspan>`).join('\n');
+
 	return createSVG('text', {
 		className: className,
 		x: x,
@@ -672,7 +688,7 @@ function makeText(className, x, y, content, options = {}) {
 		'font-size': fontSize + 'px',
 		fill: fill,
 		'text-anchor': textAnchor,
-		innerHTML: content
+		innerHTML
 	});
 }
 
@@ -1379,7 +1395,8 @@ class BaseChart {
 			showTooltip: 1, // calculate
 			showLegend: 1, // calculate
 			isNavigable: options.isNavigable || 0,
-			animate: 1
+			animate: 1,
+			truncateLegends: options.truncateLegends || 0
 		};
 
 		this.measures = JSON.parse(JSON.stringify(BASE_MEASURES));
@@ -2389,10 +2406,7 @@ class PieChart extends AggregationChart {
 		s.sliceTotals.map((total, i) => {
 			const startAngle = curAngle;
 			const originDiffAngle = (total / s.grandTotal) * FULL_ANGLE;
-			let largeArc = 0;
-			if(originDiffAngle > 180){
-				largeArc = 1;
-			}
+			const largeArc = originDiffAngle > 180 ? 1: 0;
 			const diffAngle = clockWise ? -originDiffAngle : originDiffAngle;
 			const endAngle = curAngle = curAngle + diffAngle;
 			const startPosition = getPositionByAngle(startAngle, radius);
@@ -3552,7 +3566,8 @@ class AxisChart extends BaseChart {
 					'0',
 					barWidth,
 					this.colors[i],
-					d.name);
+					d.name,
+					this.config.truncateLegends);
 				this.legendArea.appendChild(rect);
 			});
 		}
@@ -3746,6 +3761,7 @@ class DonutChart extends AggregationChart {
 		s.sliceTotals.map((total, i) => {
 			const startAngle = curAngle;
 			const originDiffAngle = (total / s.grandTotal) * FULL_ANGLE;
+			const largeArc = originDiffAngle > 180 ? 1: 0;
 			const diffAngle = clockWise ? -originDiffAngle : originDiffAngle;
 			const endAngle = curAngle = curAngle + diffAngle;
 			const startPosition = getPositionByAngle(startAngle, radius);
@@ -3761,7 +3777,7 @@ class DonutChart extends AggregationChart {
 				curStart = startPosition;
 				curEnd = endPosition;
 			}
-			const curPath = makeArcStrokePathStr(curStart, curEnd, this.center, this.radius, this.clockWise);
+			const curPath = makeArcStrokePathStr(curStart, curEnd, this.center, this.radius, this.clockWise, largeArc);
 
 			s.sliceStrings.push(curPath);
 			s.slicesProperties.push({
